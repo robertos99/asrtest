@@ -3,3 +3,6 @@ librosa
 numpy == 1.26.4
 matplotlib
 tensorboard
+pytorch-lightning == 2.3.0
+# nemo-toolkit == 2.0.0rc0
+deeplake

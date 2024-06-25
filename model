@@ -1,0 +1,80 @@
+EncDecCTCModelBPE(
+  (preprocessor): AudioToMelSpectrogramPreprocessor(
+    (featurizer): FilterbankFeatures()
+  )
+  (encoder): SqueezeformerEncoder(
+    (pre_encode): ConvSubsampling(
+      (out): Linear(in_features=2880, out_features=144, bias=True)
+      (conv): Sequential(
+        (0): Conv2d(1, 144, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        (1): ReLU()
+        (2): Conv2d(144, 144, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), groups=144)
+        (3): Conv2d(144, 144, kernel_size=(1, 1), stride=(1, 1))
+        (4): ReLU()
+      )
+    )
+    (pos_enc): RelPositionalEncoding(
+      (dropout): Dropout(p=0.1, inplace=False)
+    )
+    (layers): ModuleList(
+      (0-15): 16 x SqueezeformerLayer(
+        (norm_feed_forward1): LayerNorm((144,), eps=1e-05, elementwise_affine=True)
+        (feed_forward1): ConformerFeedForward(
+          (linear1): Linear(in_features=144, out_features=576, bias=True)
+          (activation): Swish()
+          (dropout): Dropout(p=0.1, inplace=False)
+          (linear2): Linear(in_features=576, out_features=144, bias=True)
+        )
+        (feed_forward1_scale): ScaleBiasLayer()
+        (norm_conv): LayerNorm((144,), eps=1e-05, elementwise_affine=True)
+        (conv): ConformerConvolution(
+          (pointwise_activation): SiLU(inplace=True)
+          (pointwise_conv1): Conv1d(144, 288, kernel_size=(1,), stride=(1,))
+          (depthwise_conv): CausalConv1D(288, 288, kernel_size=(31,), stride=(1,), groups=288)
+          (batch_norm): BatchNorm1d(288, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (activation): Swish()
+          (pointwise_conv2): Conv1d(288, 144, kernel_size=(1,), stride=(1,))
+        )
+        (conv_scale): ScaleBiasLayer()
+        (norm_self_att): LayerNorm((144,), eps=1e-05, elementwise_affine=True)
+        (self_attn): RelPositionMultiHeadAttention(
+          (linear_q): Linear(in_features=144, out_features=144, bias=True)
+          (linear_k): Linear(in_features=144, out_features=144, bias=True)
+          (linear_v): Linear(in_features=144, out_features=144, bias=True)
+          (linear_out): Linear(in_features=144, out_features=144, bias=True)
+          (dropout): Dropout(p=0.1, inplace=False)
+          (linear_pos): Linear(in_features=144, out_features=144, bias=False)
+        )
+        (self_attn_scale): ScaleBiasLayer()
+        (norm_feed_forward2): LayerNorm((144,), eps=1e-05, elementwise_affine=True)
+        (feed_forward2): ConformerFeedForward(
+          (linear1): Linear(in_features=144, out_features=576, bias=True)
+          (activation): Swish()
+          (dropout): Dropout(p=0.1, inplace=False)
+          (linear2): Linear(in_features=576, out_features=144, bias=True)
+        )
+        (feed_forward2_scale): ScaleBiasLayer()
+        (dropout): Dropout(p=0.1, inplace=False)
+      )
+    )
+    (time_reduce_layer): TimeReductionModule(
+      (dw_conv): Conv1d(144, 144, kernel_size=(5,), stride=(2,), padding=(3,), groups=144)
+      (pw_conv): Conv1d(144, 144, kernel_size=(1,), stride=(1,))
+    )
+    (time_recovery_layer): Linear(in_features=144, out_features=144, bias=True)
+    (time_reduce_pos_enc): RelPositionalEncoding(
+      (dropout): Dropout(p=0.0, inplace=False)
+    )
+    (pre_ln): LayerNorm((144,), eps=1e-05, elementwise_affine=True)
+  )
+  (decoder): ConvASRDecoder(
+    (decoder_layers): Sequential(
+      (0): Conv1d(144, 129, kernel_size=(1,), stride=(1,))
+    )
+  )
+  (loss): CTCLoss()
+  (spec_augmentation): SpectrogramAugmentation(
+    (spec_augment): SpecAugment()
+  )
+  (wer): WER()
+)
