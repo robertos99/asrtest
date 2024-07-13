@@ -5,4 +5,4 @@ matplotlib
 tensorboard
 pytorch-lightning == 2.3.0
 # nemo-toolkit == 2.0.0rc0
-deeplake
+flwr[simulation]
