@@ -314,12 +314,3 @@ class FedAvgServer:
 
 fed_server = FedAvgServer(ROUNDS, CLIENTS_PER_ROUND)
 fed_server.run_simulation()
-
-@hydra.main(config_path="conf", config_name="config")
-def main(cfg: DictConfig) -> None:
-    print(f"Current Configuration:\n{cfg.pretty()}")  # This will print the resolved configuration
-    fed_server = FedAvgServer(cfg)
-    fed_server.run_simulation()
-
-if __name__ == "__main__":
-    main()
