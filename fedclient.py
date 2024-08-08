@@ -182,10 +182,8 @@ class NemoFedClient(FedClient):
         if len(speaker_manifest_paths_copy) < num_pops:
             speaker_manifest_paths_copy = set(speaker_manifest_paths)
 
-        # Initialize an empty list for train_manifest_paths
         train_manifest_paths = []
 
-        # Pop num_pops items from the set, if enough items are available
         for _ in range(num_pops):
             train_manifest_paths.append(speaker_manifest_paths_copy.pop())
 
@@ -294,20 +292,12 @@ class FedAvgServer:
             print(f"--- INFO ---  Finished round {r}")
 
     def average_parameters(self, clients_list: List[List[np.ndarray]]) -> List[np.ndarray]:
-        # Assume that the structure of all clients' weights is the same,
-        # so use the structure of the first client to initialize the averaged weights.
         num_layers = len(clients_list[0])
         averaged_weights = [None] * num_layers
 
-        # Iterate through each layer
         for i in range(num_layers):
-            # Stack the same layer across all clients
             layer_stack = np.stack([client[i] for client in clients_list])
-
-            # Compute the mean across the first dimension (which is the new client dimension)
             mean_layer = np.mean(layer_stack, axis=0)
-
-            # Store the averaged layer
             averaged_weights[i] = mean_layer
 
         return averaged_weights
