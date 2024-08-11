@@ -1,9 +1,11 @@
 defaults:
 #  - client: classical
-  - client: classical-small-batch
-#  - client: federated-two-clients
 #  - federated_strategy: classical
-  - federated_strategy: classical-small-batch
-#  - federated_strategy: federated-two-clients
+#  - client: classical-small-batch
+#  - federated_strategy: classical-small-batch
+  - client: fed-two-clients
+  - federated_strategy: fed-two-clients
+#  - client: full-two-clients
+#  - federated_strategy: full-two-clients
 
 
