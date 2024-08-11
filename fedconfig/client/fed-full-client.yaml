@@ -1,0 +1,23 @@
+training:
+  epoch_per_round: 5
+  data_per_speaker: 10 # this is constant for the timit dataset, all speakers have 10 trasncritions
+  speaker_per_client: 1
+  batch_size: 5
+  num_workers: 8
+
+validation:
+  batch_size: 8
+  num_workers: 8
+
+augment:
+  freq_mask: 3
+  time_mask: 8
+
+model:
+  optim:
+    type: AdamW
+    initial_lr: 1e-4
+    betas: [ 0.9, 0.98 ]
+    weight_decay: 0.0005
+    sched:
+      min_lr: 1e-7

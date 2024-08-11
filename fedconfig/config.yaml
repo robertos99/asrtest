@@ -1,5 +1,9 @@
 defaults:
-  - client: client-many-samples
-  - federated_strategy: federated_strategy-many-samples
+#  - client: classical
+  - client: classical-small-batch
+#  - client: federated-two-clients
+#  - federated_strategy: classical
+  - federated_strategy: classical-small-batch
+#  - federated_strategy: federated-two-clients
 
 
