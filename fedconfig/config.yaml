@@ -1,0 +1,5 @@
+defaults:
+  - client: client-many-samples
+  - federated_strategy: federated_strategy-many-samples
+
+

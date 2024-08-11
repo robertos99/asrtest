@@ -1,0 +1,26 @@
+# many samples means we have an unrealistic amount of samples per client.
+# this serves as a comparison for later real federeated learning.
+# we have 460 speakers, with 10 samples each. a realistic federated use case would be one client only gets 10 of those samples.
+# this many samples base line means we have only 2 clients with 230 speakers each.
+# we have 10 rounds with 1 epoch. this mimics training on classical data for 10 epoch.
+training:
+  epoch_per_round: 1
+  data_per_speaker: 10
+  speaker_per_client: 231
+  batch_size: 5
+  num_workers: 8
+
+validation:
+  batch_size: 8
+  num_workers: 8
+
+augment:
+  freq_mask: 3
+  time_mask: 8
+
+model:
+  optim:
+    type: AdamW
+    initial_lr: 1e-5
+    sched:
+      min_lr: 1e-7
