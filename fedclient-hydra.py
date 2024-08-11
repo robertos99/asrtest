@@ -16,10 +16,14 @@ import pickle
 from pytorch_lightning import Callback
 import hydra
 import logging
-from hydra.utils import get_original_cwd
+import sys
 
-LOGGER = None
+
+LOGGER = None # later set in main
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 TOTAL_EPOCH = 0
+TOTAL_STEP = 0
 
 EPOCH_PER_ROUND = 5
 DATA_PER_SPEAKER = 10
@@ -27,14 +31,15 @@ SPEAKER_PER_CLIENT = 8
 ROUNDS = 10
 CLIENTS_PER_ROUND = 10
 
-
 class LogLearningRate(Callback):
-    def on_train_epoch_end(self, trainer, pl_module, unused=None):
-        global TOTAL_EPOCH, LOGGER
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        global LOGGER, TOTAL_STEP
 
         lr = trainer.optimizers[0].param_groups[0]['lr']
-        LOGGER.experiment.add_scalar("learning_rate", scalar_value=lr, global_step=TOTAL_EPOCH)
-        TOTAL_EPOCH += 1
+
+        LOGGER.experiment.add_scalar("lr", scalar_value=lr, global_step=TOTAL_STEP)
+
+        TOTAL_STEP += 1
 
 
 def log_parameters(filename, parameters):
@@ -85,20 +90,19 @@ def set_config(net, train_manifest_path, test_manifest_path, fed_config):
     net.setup_training_data(cfg.train_ds)
     net.setup_validation_data(cfg.validation_ds)
     net.setup_optimization(cfg.optim)
-    print("--- INFO --- hello1")
     net.spec_augmentation = net.from_config_dict(cfg.spec_augment)
-    print("--- INFO --- hello2")
+
 
 
 class FedSchedEncEecCtcBpe(nemo_asr.models.EncDecCTCModelBPE):
 
     def __init__(self, cfg: DictConfig, trainer=None):
         super().__init__(cfg, trainer)
-        self.last_epoch = None
+        self.last_lr_step = None
         self.non_nemo_cfg = None
 
-    def set_last_epoch(self, last_epoch):
-        self.last_epoch = last_epoch
+    def set_last_lr_step(self, last_lr_step):
+        self.last_lr_step = last_lr_step
 
     def set_non_nemo_cfg(self, cfg: DictConfig):
         self.non_nemo_cfg = cfg
@@ -112,7 +116,9 @@ class FedSchedEncEecCtcBpe(nemo_asr.models.EncDecCTCModelBPE):
         """
         logging.info("called FedSchedEncEecCtcBpe configure_optimizers")
         lr = self.non_nemo_cfg.client.model.optim.initial_lr
-        optimizer = AdamW(self.parameters(), lr=lr)
+        betas = self.non_nemo_cfg.client.model.optim.betas
+        weight_decay = self.non_nemo_cfg.client.model.optim.weight_decay
+        optimizer = AdamW(self.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
 
         for param_group in optimizer.param_groups:
             param_group['initial_lr'] = lr
@@ -120,16 +126,18 @@ class FedSchedEncEecCtcBpe(nemo_asr.models.EncDecCTCModelBPE):
         data_per_speaker = self.non_nemo_cfg.client.training.data_per_speaker
         speaker_per_client = self.non_nemo_cfg.client.training.speaker_per_client
         train_samples = data_per_speaker * speaker_per_client
-        max_steps = train_samples * self.non_nemo_cfg.client.training.epoch_per_round
+        steps_per_epoch = train_samples // self.non_nemo_cfg.client.training.batch_size
+        max_steps = steps_per_epoch * self.non_nemo_cfg.client.training.epoch_per_round * self.non_nemo_cfg.federated_strategy.rounds
+
 
         min_lr = self.non_nemo_cfg.client.model.optim.sched.min_lr
         scheduler = CosineAnnealingLR(
             optimizer,
             T_max=max_steps,
             eta_min=min_lr,
-            last_epoch=self.last_epoch
+            last_epoch=self.last_lr_step
         )
-        return [optimizer], [scheduler]
+        return [optimizer], [{'scheduler': scheduler, 'interval': 'step'}]
 
 
 class FedClient(ABC):
@@ -159,11 +167,6 @@ def merge_manifests(manifest_paths: list, tmp_dir: str) -> str:
     timestamp = int(time.time())
     merged_manifest_path = os.path.join(tmp_dir, f'merged_manifest_{timestamp}.json')
 
-    # Get the current working directory
-    current_directory = os.getcwd()
-
-    # Print the current working directory
-    print("Current Working Directory:", current_directory)
     # Combine lines from each manifest file
     with open(merged_manifest_path, 'w') as merged_file:
         for manifest_path in manifest_paths:
@@ -214,7 +217,8 @@ class NemoFedClient(FedClient):
 
         epoch_per_round = cfg.client.training.epoch_per_round
         last_total_epoch = epoch_per_round * (round - 1)
-        self.model.set_last_epoch(last_total_epoch)
+        # short quickwin
+        self.model.set_last_lr_step(TOTAL_STEP)
 
         callbacks = []
 
