@@ -270,37 +270,37 @@ class FedAvgServer:
         init_client = NemoFedClient(0, self.cfg)
         self.global_model_parameters = init_client.get_parameters()
 
-        logging.info("Started evaluating initial client")
-        init_eval_vals = init_client.eval()
-        logging.info("Finished evaluating initial client")
-        loss = init_eval_vals.get('val_loss', 0.0)
-        wer = init_eval_vals.get('val_wer', 0.0)
-        LOGGER.experiment.add_scalar("round_val_loss", scalar_value=loss, global_step=0)
-        LOGGER.experiment.add_scalar("round_val_wer", scalar_value=wer, global_step=0)
+        # logging.info("Started evaluating initial client")
+        # init_eval_vals = init_client.eval()
+        # logging.info("Finished evaluating initial client")
+        # loss = init_eval_vals.get('val_loss', 0.0)
+        # wer = init_eval_vals.get('val_wer', 0.0)
+        # LOGGER.experiment.add_scalar("round_val_loss", scalar_value=loss, global_step=0)
+        # LOGGER.experiment.add_scalar("round_val_wer", scalar_value=wer, global_step=0)
         for r in range(1, self.rounds + 1):
+            logging.info(f"Starting round {r}")
 
-            logging.info("Starting round {r}")
-            client_parameters = []
+            # Ensure the zeros are initialized as float32
+            cumulative_parameters = [np.zeros_like(param, dtype=np.float32) for param in self.global_model_parameters]
+
             for c in range(self.clients_per_round):
-                logging.info("Creating client {c} for round {r}")
-                log_lr = False
-                if c == 0:
-                    # log learning rate only for the first client, all others should have equal learning rate anyways
-                    log_lr = True
-                client = NemoFedClient(r, self.cfg, log_lr)
+                logging.info(f"Creating client {c} for round {r}")
+                client = NemoFedClient(r, self.cfg, log_lr=(c == 0))
                 client.set_parameters(self.global_model_parameters)
 
-                logging.info("Starting fitting of client {c} for round {r}")
+                logging.info(f"Fitting client {c} for round {r}")
                 client.fit()
+                client_params = client.get_parameters()
 
-                logging.info("Finished fitting of client {c} for round {r}")
-                model_params = client.get_parameters()
-                client_parameters.append(model_params)
+                # Sum up the global model parameters
+                for i, param in enumerate(client_params):
+                    cumulative_parameters[i] += param
+                del client  # Free the client object after use
 
-            logging.info("Started averaging for round {r}")
-            self.global_model_parameters = self.average_parameters(client_parameters)
+            # Divide summed parameters by the number of clients
+            client_count = np.float32(self.clients_per_round)
+            self.global_model_parameters = [param / client_count for param in cumulative_parameters]
 
-            logging.info("Creating averaged global model for round {r}")
             eval_client = NemoFedClient(r, self.cfg)
             eval_client.set_parameters(self.global_model_parameters)
 
