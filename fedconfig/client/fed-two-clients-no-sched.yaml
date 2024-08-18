@@ -1,4 +1,5 @@
 training:
+  num_total_clients: 2
   epoch_per_round: 1
   data_per_speaker: 10
   speaker_per_client: 231

@@ -17,6 +17,8 @@ from pytorch_lightning import Callback
 import hydra
 import logging
 import sys
+import random
+import uuid
 
 
 LOGGER = None # later set in main
@@ -165,9 +167,9 @@ def merge_manifests(manifest_paths: list, tmp_dir: str) -> str:
     # Create temporary directory if it doesn't exist
     Path(tmp_dir).mkdir(parents=True, exist_ok=True)
 
-    # Create a unique filename using a timestamp
-    timestamp = int(time.time())
-    merged_manifest_path = os.path.join(tmp_dir, f'merged_manifest_{timestamp}.json')
+    # Create a unique filename
+    clientuuid = uuid.uuid4()
+    merged_manifest_path = os.path.join(tmp_dir, f'merged_manifest_{clientuuid}.json')
 
     # Combine lines from each manifest file
     with open(merged_manifest_path, 'w') as merged_file:
@@ -186,31 +188,75 @@ def read_speaker_manifests(output_dir):
             speaker_manifest_paths.add(os.path.join(output_dir, filename))
     return speaker_manifest_paths
 
+class FedDataLoader(ABC):
+    @abstractmethod
+    def get_next_manifest(self, clientid):
+        pass
 
-fed_manifests_folder_path = "timit-dataset/federated-manifests"
-speaker_manifest_paths = read_speaker_manifests(fed_manifests_folder_path)
-speaker_manifest_paths_copy = set(speaker_manifest_paths)
+class NonIIDDataLoader(FedDataLoader):
+    def __init__(self, num_total_clients, speaker_per_client):
+        self.fed_manifests_folder_path = "timit-dataset/federated-manifests"
+        self.speaker_manifest_paths = read_speaker_manifests(self.fed_manifests_folder_path)
+        self.tmp_dir = 'tmp-manifest'
+        self.client_manifest_path = {}
+        for i in range(0, num_total_clients):
+            logging.info(f"generating manifest for client {i}")
+            train_manifest_paths = []
+            for _ in range(speaker_per_client):
+                train_manifest_paths.append(self.speaker_manifest_paths.pop())
+            train_manifest_path = merge_manifests(train_manifest_paths, self.tmp_dir)
+            self.client_manifest_path[i] = train_manifest_path
+        print(f"clients manifests {self.client_manifest_path}")
+
+    def get_next_manifest(self, clientid):
+        return self.client_manifest_path[clientid]
+
+class IIDDataLoader(FedDataLoader):
+    def __init__(self, num_total_clients, speaker_per_client):
+        self.fed_manifests_folder_path = "timit-dataset/federated-manifests"
+        self.speaker_manifest_paths = read_speaker_manifests(self.fed_manifests_folder_path)
+        self.tmp_dir = 'tmp-iid-manifest'
+        all_merged_path = merge_manifests(list(self.speaker_manifest_paths), self.tmp_dir)
+        all_transcriptions = []
+        with open(all_merged_path, 'r') as f:
+            for line in f:
+                all_transcriptions.append(line)
+        self.client_manifest_path = {}
+        for i in range(0, num_total_clients):
+            logging.info(f"generating manifest for client {i}")
+            # Create a unique filename
+            clientuuid = uuid.uuid4()
+            train_manifest_path = os.path.join(self.tmp_dir, f'merged_manifest_{clientuuid}.json')
+            iid_client_transcriptions = []
+            # 10 samples per speaker
+            for _ in range(speaker_per_client*10):
+                random_transcription = random.choice(all_transcriptions)
+                all_transcriptions.remove(random_transcription)
+                iid_client_transcriptions.append(random_transcription)
+            with open(train_manifest_path, 'w') as train_file:
+                for nemo_transcription in iid_client_transcriptions:
+                    train_file.write(nemo_transcription)
+            self.client_manifest_path[i] = train_manifest_path
+        print(f"clients manifests {self.client_manifest_path}")
+
+    def get_next_manifest(self, clientid):
+        return self.client_manifest_path[clientid]
 
 TEST_MANIFEST_PATH = "timit-dataset/test-manifest.clean.json"
 
 
 class NemoFedClient(FedClient):
-    def __init__(self, round: int, cfg: DictConfig, log_lr=False):
-        global speaker_manifest_paths, speaker_manifest_paths_copy, TEST_MANIFEST_PATH
+    # round starts from 1 since 0 is before we finetune
+    # clientid starts from 0 like everything else
+    # dataloader can be None for validaton clients so we dont pop data
+    def __init__(self, round: int, clientid: int, cfg: DictConfig, dataloader: FedDataLoader | None, log_lr=False):
+        global TEST_MANIFEST_PATH
 
-        num_pops = cfg.client.training.speaker_per_client
-
-        # Ensure the set is refilled if it has fewer items than num_pops
-        if len(speaker_manifest_paths_copy) < num_pops:
-            speaker_manifest_paths_copy = set(speaker_manifest_paths)
-
-        train_manifest_paths = []
-
-        for _ in range(num_pops):
-            train_manifest_paths.append(speaker_manifest_paths_copy.pop())
-
-        tmp_dir = 'tmp-manifest'
-        train_manifest_path = merge_manifests(train_manifest_paths, tmp_dir)
+        # this is a dummy value which will be overridden by all clients that are used for training. The None is only for validation
+        train_manifest_path = "timit-dataset/train-manifest.clean.json"
+        if dataloader is not None:
+            # if dataloader is not none its a trainig client
+            train_manifest_path = dataloader.get_next_manifest(clientid)
 
         self.model = FedSchedEncEecCtcBpe.from_pretrained(model_name="stt_en_squeezeformer_ctc_xsmall_ls")
         train_manifest_path = train_manifest_path
@@ -218,7 +264,7 @@ class NemoFedClient(FedClient):
         self.model.set_non_nemo_cfg(cfg)
 
         epoch_per_round = cfg.client.training.epoch_per_round
-        last_total_epoch = epoch_per_round * (round - 1)
+        #last_total_epoch = epoch_per_round * (round - 1)
         # short quickwin
         self.model.set_last_lr_step(TOTAL_STEP)
 
@@ -258,18 +304,41 @@ class NemoFedClient(FedClient):
         wer = test_result.get('val_wer', 0.0)
         return {"val_loss": loss, "val_wer": wer}
 
+# receive one random client. if a client is returned it is removed from the available clients.
+# once ALL clients are removed all clients become available again.
+# this is to guaranntee each clients data is used the exact same amount of time as any other.
+class ClientSelector:
+    def __init__(self, num_total_clients: int):
+        self.num_total_clients = num_total_clients
+        self.clients = list(range(num_total_clients))
+        self.available_clients = self.clients.copy()
+
+    def get_next_client(self) -> int:
+        if not self.available_clients:
+            self.available_clients = self.clients.copy()  # Reset the list when all clients have been selected
+
+        client_id = random.choice(self.available_clients)
+        self.available_clients.remove(client_id)
+        return client_id
 
 class FedAvgServer:
     def __init__(self, cfg: DictConfig):
+        dataloader = None
+        if cfg.federated_strategy.data == "noniid":
+            dataloader = NonIIDDataLoader(cfg.client.training.num_total_clients, cfg.client.training.speaker_per_client)
+        if cfg.federated_strategy.data == "iid":
+            dataloader = IIDDataLoader(cfg.client.training.num_total_clients, cfg.client.training.speaker_per_client)
+        self.dataloader = dataloader
         self.rounds = cfg.federated_strategy.rounds
         self.clients_per_round = cfg.federated_strategy.clients_per_round
         self.global_model_parameters = None
         self.cfg = cfg
+        self.client_selector = ClientSelector(self.cfg.client.training.num_total_clients)
 
     def run_simulation(self):
         global LOGGER
         logging.info("Creating initial client")
-        init_client = NemoFedClient(0, self.cfg)
+        init_client = NemoFedClient(0, 0, self.cfg, None)
         self.global_model_parameters = init_client.get_parameters()
 
         # logging.info("Started evaluating initial client")
@@ -286,8 +355,9 @@ class FedAvgServer:
             cumulative_parameters = [np.zeros_like(param, dtype=np.float32) for param in self.global_model_parameters]
 
             for c in range(self.clients_per_round):
-                logging.info(f"Creating client {c} for round {r}")
-                client = NemoFedClient(r, self.cfg, log_lr=(c == 0))
+                clientid = self.client_selector.get_next_client()
+                logging.info(f"Creating client {c} with clientid {clientid} for round {r}")
+                client = NemoFedClient(r, clientid, self.cfg, self.dataloader, log_lr=(c == 0))
                 client.set_parameters(self.global_model_parameters)
 
                 logging.info(f"Fitting client {c} for round {r}")
@@ -303,7 +373,7 @@ class FedAvgServer:
             client_count = np.float32(self.clients_per_round)
             self.global_model_parameters = [param / client_count for param in cumulative_parameters]
 
-            eval_client = NemoFedClient(r, self.cfg)
+            eval_client = NemoFedClient(r, 0, self.cfg, None)
             eval_client.set_parameters(self.global_model_parameters)
 
             logging.info("Starting evaluation of averaged global model for round {r}")

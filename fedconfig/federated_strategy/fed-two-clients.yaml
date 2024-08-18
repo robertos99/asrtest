@@ -6,3 +6,4 @@
 # 2 clients is the least minimal federated model we can make so this is a good entry point
 rounds: 10
 clients_per_round: 2
+data: "noniid"

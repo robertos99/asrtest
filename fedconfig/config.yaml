@@ -7,13 +7,18 @@ defaults:
 #  - federated_strategy: fed-two-clients
 #  - client: fed-full-clients
 #  - federated_strategy: fed-full-clients
-#  - client: two-test
-#  - federated_strategy: two-test
 
 # more classical fedavg with no scheduler but constant lr
 #  - client: classical-no-sched
 #  - federated_strategy: classical
 #  - client: fed-two-clients-no-sched
 #  - federated_strategy: fed-two-clients
-  - client: fed-full-clients-no-sched
-  - federated_strategy: fed-full-clients
+#  - client: fed-full-clients-no-sched
+#  - federated_strategy: fed-full-clients
+
+#
+#  - client: two-test
+#  - federated_strategy: two-test
+
+  - client: two-test-iid
+  - federated_strategy: two-test-iid
