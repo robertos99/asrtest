@@ -122,23 +122,25 @@ class FedSchedEncEecCtcBpe(nemo_asr.models.EncDecCTCModelBPE):
 
         for param_group in optimizer.param_groups:
             param_group['initial_lr'] = lr
+        if self.non_nemo_cfg.client.model.optim.sched.type == "sched":
+            data_per_speaker = self.non_nemo_cfg.client.training.data_per_speaker
+            speaker_per_client = self.non_nemo_cfg.client.training.speaker_per_client
+            train_samples = data_per_speaker * speaker_per_client
+            steps_per_epoch = train_samples // self.non_nemo_cfg.client.training.batch_size
+            max_steps = steps_per_epoch * self.non_nemo_cfg.client.training.epoch_per_round * self.non_nemo_cfg.federated_strategy.rounds
 
-        data_per_speaker = self.non_nemo_cfg.client.training.data_per_speaker
-        speaker_per_client = self.non_nemo_cfg.client.training.speaker_per_client
-        train_samples = data_per_speaker * speaker_per_client
-        steps_per_epoch = train_samples // self.non_nemo_cfg.client.training.batch_size
-        max_steps = steps_per_epoch * self.non_nemo_cfg.client.training.epoch_per_round * self.non_nemo_cfg.federated_strategy.rounds
 
-
-        min_lr = self.non_nemo_cfg.client.model.optim.sched.min_lr
-        scheduler = CosineAnnealingLR(
-            optimizer,
-            T_max=max_steps,
-            eta_min=min_lr,
-            last_epoch=self.last_lr_step
-        )
-        return [optimizer], [{'scheduler': scheduler, 'interval': 'step'}]
-
+            min_lr = self.non_nemo_cfg.client.model.optim.sched.min_lr
+            scheduler = CosineAnnealingLR(
+                optimizer,
+                T_max=max_steps,
+                eta_min=min_lr,
+                last_epoch=self.last_lr_step
+            )
+            return [optimizer], [{'scheduler': scheduler, 'interval': 'step'}]
+        else:
+            # no scheduler
+            return optimizer
 
 class FedClient(ABC):
 

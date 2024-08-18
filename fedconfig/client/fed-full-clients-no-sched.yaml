@@ -1,7 +1,7 @@
 training:
   epoch_per_round: 1
-  data_per_speaker: 10
-  speaker_per_client: 231
+  data_per_speaker: 10 # this is constant for the timit dataset, all speakers have 10 trasncritions
+  speaker_per_client: 1
   batch_size: 5
   num_workers: 8
 
@@ -16,9 +16,8 @@ augment:
 model:
   optim:
     type: AdamW
-    initial_lr: 1e-4
+    initial_lr: 0.00005 # 5e-5
     betas: [ 0.9, 0.98 ]
     weight_decay: 0.0005
     sched:
-      type: "sched"
-      min_lr: 1e-7
+      type: "none"
