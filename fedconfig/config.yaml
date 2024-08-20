@@ -1,24 +1,27 @@
 defaults:
-#  - client: classical
-#  - federated_strategy: classical
-#  - client: classical-small-batch
-#  - federated_strategy: classical-small-batch
-#  - client: fed-two-clients
-#  - federated_strategy: fed-two-clients
-#  - client: fed-full-clients
-#  - federated_strategy: fed-full-clients
+####
+# IID
+####
+# done
+#  - client: iid_classical
+#  - federated_strategy: iid_classical
 
-# more classical fedavg with no scheduler but constant lr
-#  - client: classical-no-sched
-#  - federated_strategy: classical
-#  - client: fed-two-clients-no-sched
-#  - federated_strategy: fed-two-clients
-#  - client: fed-full-clients-no-sched
-#  - federated_strategy: fed-full-clients
+  - client: iid_fed-full-clients
+  - federated_strategy: iid_fed-full-clients
 
-#
-#  - client: two-test
-#  - federated_strategy: two-test
+#  - client: iid_fed-two-clients
+#  - federated_strategy: iid_fed-two-clients
 
-  - client: two-test-iid
-  - federated_strategy: two-test-iid
+
+####
+# Non-IID
+####
+#  - client: noniid_classical
+#  - federated_strategy: noniid_classical
+
+# done
+#  - client: noniid_fed-full-clients
+#  - federated_strategy: noniid_fed-full-clients
+
+#  - client: noniid_fed-two-clients
+#  - federated_strategy: noniid_fed-two-clients

@@ -264,8 +264,6 @@ class NemoFedClient(FedClient):
         self.model.set_non_nemo_cfg(cfg)
 
         epoch_per_round = cfg.client.training.epoch_per_round
-        #last_total_epoch = epoch_per_round * (round - 1)
-        # short quickwin
         self.model.set_last_lr_step(TOTAL_STEP)
 
         callbacks = []
@@ -322,7 +320,8 @@ class ClientSelector:
         return client_id
 
 class FedAvgServer:
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, output_dir: str):
+        self.output_dir = output_dir
         dataloader = None
         if cfg.federated_strategy.data == "noniid":
             dataloader = NonIIDDataLoader(cfg.client.training.num_total_clients, cfg.client.training.speaker_per_client)
@@ -341,13 +340,13 @@ class FedAvgServer:
         init_client = NemoFedClient(0, 0, self.cfg, None)
         self.global_model_parameters = init_client.get_parameters()
 
-        # logging.info("Started evaluating initial client")
-        # init_eval_vals = init_client.eval()
-        # logging.info("Finished evaluating initial client")
-        # loss = init_eval_vals.get('val_loss', 0.0)
-        # wer = init_eval_vals.get('val_wer', 0.0)
-        # LOGGER.experiment.add_scalar("round_val_loss", scalar_value=loss, global_step=0)
-        # LOGGER.experiment.add_scalar("round_val_wer", scalar_value=wer, global_step=0)
+        logging.info("Started evaluating initial client")
+        init_eval_vals = init_client.eval()
+        logging.info("Finished evaluating initial client")
+        loss = init_eval_vals.get('val_loss', 0.0)
+        wer = init_eval_vals.get('val_wer', 0.0)
+        LOGGER.experiment.add_scalar("round_val_loss", scalar_value=loss, global_step=0)
+        LOGGER.experiment.add_scalar("round_val_wer", scalar_value=wer, global_step=0)
         for r in range(1, self.rounds + 1):
             logging.info(f"Starting round {r}")
 
@@ -357,6 +356,7 @@ class FedAvgServer:
             for c in range(self.clients_per_round):
                 clientid = self.client_selector.get_next_client()
                 logging.info(f"Creating client {c} with clientid {clientid} for round {r}")
+                # only one client per round logs learning rate
                 client = NemoFedClient(r, clientid, self.cfg, self.dataloader, log_lr=(c == 0))
                 client.set_parameters(self.global_model_parameters)
 
@@ -375,6 +375,14 @@ class FedAvgServer:
 
             eval_client = NemoFedClient(r, 0, self.cfg, None)
             eval_client.set_parameters(self.global_model_parameters)
+
+            # Save the eval client weights after each round
+            checkpoint_dir = os.path.join(self.output_dir, "checkpoints")
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            checkpoint_path = os.path.join(checkpoint_dir, f"model_weight_round_{r}.pth")
+            torch.save(self.global_model_parameters, checkpoint_path)
+
+            logging.info(f"Saved checkpoint for round {r} at {checkpoint_path}")
 
             logging.info("Starting evaluation of averaged global model for round {r}")
             eval_vals = eval_client.eval()
@@ -407,7 +415,7 @@ def main(cfg: DictConfig) -> None:
     LOGGER = TensorBoardLogger(hydra_output_dir, name="federated_learning")
 
     logging.info(f"Current Configuration:\n{OmegaConf.to_yaml(cfg)}")
-    fed_server = FedAvgServer(cfg)
+    fed_server = FedAvgServer(cfg, output_dir=hydra_output_dir)
     fed_server.run_simulation()
 
 

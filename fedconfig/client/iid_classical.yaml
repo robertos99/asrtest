@@ -3,7 +3,7 @@ training:
   epoch_per_round: 1
   data_per_speaker: 10
   speaker_per_client: 462
-  batch_size: 8
+  batch_size: 5
   num_workers: 8
 
 validation:
