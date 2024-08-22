@@ -6,8 +6,12 @@ defaults:
 #  - client: iid_classical
 #  - federated_strategy: iid_classical
 
-  - client: iid_fed-full-clients
-  - federated_strategy: iid_fed-full-clients
+# done
+#  - client: iid_fed-full-clients
+#  - federated_strategy: iid_fed-full-clients
+
+  - client: iid_fed-full-clients-stretched-out
+  - federated_strategy: iid_fed-full-clients-stretched-out
 
 #  - client: iid_fed-two-clients
 #  - federated_strategy: iid_fed-two-clients
@@ -22,6 +26,9 @@ defaults:
 # done
 #  - client: noniid_fed-full-clients
 #  - federated_strategy: noniid_fed-full-clients
+
+#  - client: noniid_fed-full-clients-stretched-out
+#  - federated_strategy: noniid_fed-full-clients-stretched-out
 
 #  - client: noniid_fed-two-clients
 #  - federated_strategy: noniid_fed-two-clients

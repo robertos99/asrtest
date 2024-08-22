@@ -329,6 +329,7 @@ class FedAvgServer:
             dataloader = IIDDataLoader(cfg.client.training.num_total_clients, cfg.client.training.speaker_per_client)
         self.dataloader = dataloader
         self.rounds = cfg.federated_strategy.rounds
+        self.validate_every_n_rounds = cfg.federated_strategy.validate_every_n_rounds
         self.clients_per_round = cfg.federated_strategy.clients_per_round
         self.global_model_parameters = None
         self.cfg = cfg
@@ -372,25 +373,25 @@ class FedAvgServer:
             # Divide summed parameters by the number of clients
             client_count = np.float32(self.clients_per_round)
             self.global_model_parameters = [param / client_count for param in cumulative_parameters]
+            if r %  self.validate_every_n_rounds == 0:
+                eval_client = NemoFedClient(r, 0, self.cfg, None)
+                eval_client.set_parameters(self.global_model_parameters)
 
-            eval_client = NemoFedClient(r, 0, self.cfg, None)
-            eval_client.set_parameters(self.global_model_parameters)
+                # Save the eval client weights after each round
+                checkpoint_dir = os.path.join(self.output_dir, "checkpoints")
+                os.makedirs(checkpoint_dir, exist_ok=True)
+                checkpoint_path = os.path.join(checkpoint_dir, f"model_weight_round_{r}.pth")
+                torch.save(self.global_model_parameters, checkpoint_path)
 
-            # Save the eval client weights after each round
-            checkpoint_dir = os.path.join(self.output_dir, "checkpoints")
-            os.makedirs(checkpoint_dir, exist_ok=True)
-            checkpoint_path = os.path.join(checkpoint_dir, f"model_weight_round_{r}.pth")
-            torch.save(self.global_model_parameters, checkpoint_path)
+                logging.info(f"Saved checkpoint for round {r} at {checkpoint_path}")
 
-            logging.info(f"Saved checkpoint for round {r} at {checkpoint_path}")
-
-            logging.info("Starting evaluation of averaged global model for round {r}")
-            eval_vals = eval_client.eval()
-            logging.info("Finished evaluation of averaged global model for round {r}")
-            loss = eval_vals.get('val_loss', 0.0)
-            wer = eval_vals.get('val_wer', 0.0)
-            LOGGER.experiment.add_scalar("round_val_loss", scalar_value=loss, global_step=r)
-            LOGGER.experiment.add_scalar("round_val_wer", scalar_value=wer, global_step=r)
+                logging.info("Starting evaluation of averaged global model for round {r}")
+                eval_vals = eval_client.eval()
+                logging.info("Finished evaluation of averaged global model for round {r}")
+                loss = eval_vals.get('val_loss', 0.0)
+                wer = eval_vals.get('val_wer', 0.0)
+                LOGGER.experiment.add_scalar("round_val_loss", scalar_value=loss, global_step=r)
+                LOGGER.experiment.add_scalar("round_val_wer", scalar_value=wer, global_step=r)
 
             logging.info("Finished round {r}")
 

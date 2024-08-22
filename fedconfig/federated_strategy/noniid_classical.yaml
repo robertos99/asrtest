@@ -7,3 +7,4 @@
 rounds: 10
 clients_per_round: 1
 data: "noniid"
+validate_every_n_rounds: 1

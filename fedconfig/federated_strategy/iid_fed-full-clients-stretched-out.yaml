@@ -1,0 +1,4 @@
+rounds: 210
+clients_per_round: 22
+data: "iid"
+validate_every_n_rounds: 21
