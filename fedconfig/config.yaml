@@ -21,6 +21,7 @@ defaults:
 ####
 # Non-IID
 ####
+# irrelevant because iid and noniid are the same in classical
 #  - client: noniid_classical
 #  - federated_strategy: noniid_classical
 
