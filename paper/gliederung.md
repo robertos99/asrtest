@@ -28,6 +28,7 @@ server and client steps (client macht steps mit lokaler lr, aggregiert lokale gr
 
 ## eigene untersuchungen
 basis model - mit spec augmentation von nemo
+datenaufbereitung - entfernung von , und so
 
 cross device, ...
 finetuning von asr modellen., 
