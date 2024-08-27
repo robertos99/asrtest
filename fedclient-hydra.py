@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from pytorch_lightning.loggers import TensorBoardLogger
 import nemo.collections.asr as nemo_asr
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.optim import AdamW
+from torch.optim import AdamW, SGD
 from omegaconf import open_dict, DictConfig, OmegaConf
 import pytorch_lightning as ptl
 import pickle
@@ -111,26 +111,31 @@ class FedSchedEncEecCtcBpe(nemo_asr.models.EncDecCTCModelBPE):
 
     def configure_optimizers(self):
         """
-        This long function is unfortunately doing something very simple and is being very defensive:
-        We are separating out all parameters of the model into two buckets: those that will experience
-        weight decay for regularization and those that won't (biases, and layernorm/embedding weights).
-        We are then returning the PyTorch optimizer object.
+        This function configures the optimizers for the model, allowing for different types of optimizers
+        such as AdamW or SGD, depending on the configuration settings.
         """
         logging.info("called FedSchedEncEecCtcBpe configure_optimizers")
+
         lr = self.non_nemo_cfg.client.model.optim.initial_lr
-        betas = self.non_nemo_cfg.client.model.optim.betas
-        weight_decay = self.non_nemo_cfg.client.model.optim.weight_decay
-        optimizer = AdamW(self.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
+
+        # Choose optimizer type based on configuration
+        optim_type = self.non_nemo_cfg.client.model.optim.type
+        if optim_type == 'SGD':
+            optimizer = SGD(self.parameters())
+        else:  # default to AdamW if not SGD
+            weight_decay = self.non_nemo_cfg.client.model.optim.weight_decay
+            betas = self.non_nemo_cfg.client.model.optim.betas
+            optimizer = AdamW(self.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
 
         for param_group in optimizer.param_groups:
             param_group['initial_lr'] = lr
+
         if self.non_nemo_cfg.client.model.optim.sched.type == "sched":
             data_per_speaker = self.non_nemo_cfg.client.training.data_per_speaker
             speaker_per_client = self.non_nemo_cfg.client.training.speaker_per_client
             train_samples = data_per_speaker * speaker_per_client
             steps_per_epoch = train_samples // self.non_nemo_cfg.client.training.batch_size
             max_steps = steps_per_epoch * self.non_nemo_cfg.client.training.epoch_per_round * self.non_nemo_cfg.federated_strategy.rounds
-
 
             min_lr = self.non_nemo_cfg.client.model.optim.sched.min_lr
             scheduler = CosineAnnealingLR(
@@ -143,6 +148,7 @@ class FedSchedEncEecCtcBpe(nemo_asr.models.EncDecCTCModelBPE):
         else:
             # no scheduler
             return optimizer
+
 
 class FedClient(ABC):
 
@@ -275,10 +281,13 @@ class NemoFedClient(FedClient):
             accelerator = 'gpu'
         else:
             accelerator = 'cpu'
+
+        accumulate_grad_batches = getattr(cfg.client.training, 'accumulate_grad_batches', 1)
+
         self.trainer = ptl.Trainer(devices=1,
                                    accelerator=accelerator,
                                    max_epochs=epoch_per_round,
-                                   accumulate_grad_batches=1,
+                                   accumulate_grad_batches=accumulate_grad_batches,
                                    enable_checkpointing=False,
                                    logger=False,
                                    log_every_n_steps=1,
@@ -348,6 +357,7 @@ class FedAvgServer:
         wer = init_eval_vals.get('val_wer', 0.0)
         LOGGER.experiment.add_scalar("round_val_loss", scalar_value=loss, global_step=0)
         LOGGER.experiment.add_scalar("round_val_wer", scalar_value=wer, global_step=0)
+        LOGGER.experiment.add_scalar("epoch_val_wer", scalar_value=wer, global_step=0)
         for r in range(1, self.rounds + 1):
             logging.info(f"Starting round {r}")
 
@@ -392,6 +402,7 @@ class FedAvgServer:
                 wer = eval_vals.get('val_wer', 0.0)
                 LOGGER.experiment.add_scalar("round_val_loss", scalar_value=loss, global_step=r)
                 LOGGER.experiment.add_scalar("round_val_wer", scalar_value=wer, global_step=r)
+                LOGGER.experiment.add_scalar("epoch_val_wer", scalar_value=wer, global_step=r/self.validate_every_n_rounds)
 
             logging.info("Finished round {r}")
 

@@ -35,3 +35,13 @@ defaults:
 
 #  - client: noniid_fed-two-clients
 #  - federated_strategy: noniid_fed-two-clients
+
+
+####
+# Test
+####
+#  - client: iid_classical-sgd-compare
+#  - federated_strategy: iid_classical
+
+  - client: iid_fed-full-clients-stretched-out-sgd-compare
+  - federated_strategy: iid_fed-full-clients-stretched-out-sgd-compare
