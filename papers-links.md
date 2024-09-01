@@ -17,3 +17,10 @@ https://arxiv.org/pdf/1806.00582
 
 specaugment, gaussian noise, speed pertubation
 https://arxiv.org/html/2303.00510v2
+
+
+defines noniid iid
+https://arxiv.org/html/2401.00809v1#:~:text=Non%2DIID%20data%20implies%20that,same%20underlying%20distribution%20breaks%20down.
+
+https://www.isca-archive.org/interspeech_2015/ko15_interspeech.pdf
+speed pertubation asr
