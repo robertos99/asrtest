@@ -70,6 +70,7 @@ def set_config(net, train_manifest_path, test_manifest_path, fed_config):
         cfg.train_ds.batch_size = fed_config.client.training.batch_size
         cfg.train_ds.num_workers = fed_config.client.training.num_workers
         cfg.train_ds.is_tarred = False
+        cfg.train_ds.shuffle = getattr(fed_config.client.training, "shuffle", False)
         #   cfg.train_ds.pin_memory=True \
         # cfg.test_ds.manifest_filepath = test_manifest_path
         # cfg.test_ds.batch_size = cfg.client.validation.batch_size
@@ -187,11 +188,11 @@ def merge_manifests(manifest_paths: list, tmp_dir: str) -> str:
     return merged_manifest_path
 
 
-def read_speaker_manifests(output_dir):
+def read_speaker_manifests(dir):
     speaker_manifest_paths = set()
-    for filename in os.listdir(output_dir):
-        if filename.endswith("_manifest.json"):
-            speaker_manifest_paths.add(os.path.join(output_dir, filename))
+    for filename in os.listdir(dir):
+        if filename.endswith(".json"):
+            speaker_manifest_paths.add(os.path.join(dir, filename))
     return speaker_manifest_paths
 
 class FedDataLoader(ABC):
@@ -200,10 +201,10 @@ class FedDataLoader(ABC):
         pass
 
 class NonIIDDataLoader(FedDataLoader):
-    def __init__(self, num_total_clients, speaker_per_client):
-        self.fed_manifests_folder_path = "timit-dataset/federated-manifests"
+    def __init__(self, num_total_clients, speaker_per_client, source_manifest_folder_path, generated_manifest_folder):
+        self.fed_manifests_folder_path = source_manifest_folder_path
         self.speaker_manifest_paths = read_speaker_manifests(self.fed_manifests_folder_path)
-        self.tmp_dir = 'tmp-manifest'
+        self.tmp_dir = generated_manifest_folder
         self.client_manifest_path = {}
         for i in range(0, num_total_clients):
             logging.info(f"generating manifest for client {i}")
@@ -218,10 +219,10 @@ class NonIIDDataLoader(FedDataLoader):
         return self.client_manifest_path[clientid]
 
 class IIDDataLoader(FedDataLoader):
-    def __init__(self, num_total_clients, speaker_per_client):
-        self.fed_manifests_folder_path = "timit-dataset/federated-manifests"
+    def __init__(self, num_total_clients, speaker_per_client, data_per_speaker, source_manifest_folder_path, generated_manifest_folder):
+        self.fed_manifests_folder_path = source_manifest_folder_path
         self.speaker_manifest_paths = read_speaker_manifests(self.fed_manifests_folder_path)
-        self.tmp_dir = 'tmp-iid-manifest'
+        self.tmp_dir = generated_manifest_folder
         all_merged_path = merge_manifests(list(self.speaker_manifest_paths), self.tmp_dir)
         all_transcriptions = []
         with open(all_merged_path, 'r') as f:
@@ -235,7 +236,7 @@ class IIDDataLoader(FedDataLoader):
             train_manifest_path = os.path.join(self.tmp_dir, f'merged_manifest_{clientuuid}.json')
             iid_client_transcriptions = []
             # 10 samples per speaker
-            for _ in range(speaker_per_client*10):
+            for _ in range(speaker_per_client * data_per_speaker):
                 random_transcription = random.choice(all_transcriptions)
                 all_transcriptions.remove(random_transcription)
                 iid_client_transcriptions.append(random_transcription)
@@ -331,11 +332,28 @@ class ClientSelector:
 class FedAvgServer:
     def __init__(self, cfg: DictConfig, output_dir: str):
         self.output_dir = output_dir
+        data_per_speaker = int(cfg.client.training.data_per_speaker)
+
         dataloader = None
         if cfg.federated_strategy.data == "noniid":
-            dataloader = NonIIDDataLoader(cfg.client.training.num_total_clients, cfg.client.training.speaker_per_client)
+            source_manifest_folder_path = "timit-dataset/federated-manifests"
+            generated_manifest_folder_path = 'tmp-manifest'
+            if cfg.client.augment.speed_pertubation == True:
+                count_extra_samples = data_per_speaker - 10 # normal samples per client
+                print(f"data per spkear {data_per_speaker}, count extra samples {count_extra_samples}")
+                source_manifest_folder_path = "tmp-noniid-augmented-manifests/" + str(count_extra_samples)
+                generated_manifest_folder_path = 'tmp-manifest-noniid-augment/' + str(count_extra_samples)
+            dataloader = NonIIDDataLoader(cfg.client.training.num_total_clients, cfg.client.training.speaker_per_client,
+                                          source_manifest_folder_path, generated_manifest_folder_path)
         if cfg.federated_strategy.data == "iid":
-            dataloader = IIDDataLoader(cfg.client.training.num_total_clients, cfg.client.training.speaker_per_client)
+            source_manifest_folder_path = "timit-dataset/federated-manifests"
+            generated_manifest_folder_path = 'tmp-iid-manifest'
+            if cfg.client.augment.speed_pertubation == True:
+                count_extra_samples = data_per_speaker - 10 # normal samples per client
+                source_manifest_folder_path = "tmp-noniid-augmented-manifests/" + str(count_extra_samples)
+                generated_manifest_folder_path = 'tmp-manifest-iid-augment/' + str(count_extra_samples)
+            dataloader = IIDDataLoader(cfg.client.training.num_total_clients, cfg.client.training.speaker_per_client, data_per_speaker,
+                                       source_manifest_folder_path, generated_manifest_folder_path)
         self.dataloader = dataloader
         self.rounds = cfg.federated_strategy.rounds
         self.validate_every_n_rounds = cfg.federated_strategy.validate_every_n_rounds

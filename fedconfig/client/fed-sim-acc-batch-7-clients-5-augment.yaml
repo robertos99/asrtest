@@ -1,10 +1,11 @@
 training:
-  num_total_clients: 1
+  num_total_clients: 1 # simulating on one client
   epoch_per_round: 1
-  data_per_speaker: 10
+  data_per_speaker: 15 # 10 sampless nativle plus 5 more agumented with speed pertubation
   speaker_per_client: 462
-  batch_size: 70
+  batch_size: 15
   num_workers: 8
+  accumulate_grad_batches: 7 # for 7 clients simulation
 
 validation:
   batch_size: 8
@@ -13,6 +14,7 @@ validation:
 augment:
   freq_mask: 3
   time_mask: 8
+  speed_pertubation: True
 
 model:
   optim:
@@ -20,4 +22,3 @@ model:
     initial_lr: 0.00005 # 5e-5
     sched:
       type: "none"
-

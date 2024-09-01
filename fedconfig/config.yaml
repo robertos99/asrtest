@@ -38,10 +38,33 @@ defaults:
 
 
 ####
-# Test
+# Test Batching
 ####
-#  - client: iid_classical-sgd-compare
-#  - federated_strategy: iid_classical
+#  - client: noniid_classical-sgd-compare
+#  - federated_strategy: noniid_classical
 
-  - client: iid_fed-full-clients-stretched-out-sgd-compare
-  - federated_strategy: iid_fed-full-clients-stretched-out-sgd-compare
+#  - client: noniid_classical-sgd-compare-acc-grad-v2
+#  - federated_strategy: noniid_classical
+
+#  - client: noniid_classical-sgd-compare-acc-grad
+#  - federated_strategy: noniid_classical
+
+#  - client: iid_fed-full-clients-stretched-out-sgd-compare
+#  - federated_strategy: iid_fed-full-clients-stretched-out-sgd-compare
+
+
+####
+# Speed pertubation
+####
+#done
+# 5 augmented per client. noniid. simulated fedavg with batch agg
+#  - client: fed-sim-acc-batch-7-clients-5-augment
+#  - federated_strategy: noniid_fed_sim_accbatch
+
+# 5 augmented per client. iid. simulated fedavg with batch agg
+  - client: fed-sim-acc-batch-7-clients-5-augment
+  - federated_strategy: iid_fed_sim_accbatch
+
+# 20 augmented per client. noniid. simulated fedavg with batch agg
+#  - client: fed-sim-acc-batch-7-clients-20-augment
+#  - federated_strategy: noniid_fed_sim_accbatch
