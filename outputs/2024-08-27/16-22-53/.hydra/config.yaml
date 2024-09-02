@@ -1,0 +1,25 @@
+client:
+  training:
+    num_total_clients: 462
+    epoch_per_round: 1
+    data_per_speaker: 10
+    speaker_per_client: 1
+    batch_size: 10
+    num_workers: 8
+  validation:
+    batch_size: 8
+    num_workers: 8
+  augment:
+    freq_mask: 3
+    time_mask: 8
+  model:
+    optim:
+      type: SGD
+      initial_lr: 5.0e-05
+      sched:
+        type: none
+federated_strategy:
+  rounds: 660
+  clients_per_round: 7
+  data: iid
+  validate_every_n_rounds: 66

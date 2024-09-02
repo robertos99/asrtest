@@ -2,53 +2,45 @@ defaults:
 ####
 # IID
 ####
-# done
+# done 2024-08-14/14-08-29
 #  - client: iid_classical
 #  - federated_strategy: iid_classical
 
-# done
+# done 2024-08-20/10-08-07
 #  - client: iid_fed-full-clients
 #  - federated_strategy: iid_fed-full-clients
 
-# done
+# done 2024-08-22/18-25-42
 #  - client: iid_fed-full-clients-stretched-out
 #  - federated_strategy: iid_fed-full-clients-stretched-out
-
-#  - client: iid_fed-two-clients
-#  - federated_strategy: iid_fed-two-clients
-
 
 ####
 # Non-IID
 ####
-# irrelevant because iid and noniid are the same in classical
+# done 2024-08-19/14-22-25
 #  - client: noniid_classical
 #  - federated_strategy: noniid_classical
 
-# done
+# done 2024-08-19/16-24-22
 #  - client: noniid_fed-full-clients
 #  - federated_strategy: noniid_fed-full-clients
 
-# done
+# done 2024-08-23/10-26-22
 #  - client: noniid_fed-full-clients-stretched-out
 #  - federated_strategy: noniid_fed-full-clients-stretched-out
-
-#  - client: noniid_fed-two-clients
-#  - federated_strategy: noniid_fed-two-clients
-
 
 ####
 # Test Batching
 ####
-#  - client: noniid_classical-sgd-compare
-#  - federated_strategy: noniid_classical
+# done 2024-08-27/15-22-43
+#  - client: iid_classical-sgd-compare-acc-grad
+#  - federated_strategy: iid_classical
 
-#  - client: noniid_classical-sgd-compare-acc-grad-v2
-#  - federated_strategy: noniid_classical
+# done 2024-09-02/12-32-44
+  - client: iid_classical-sgd-compare-big-batch
+  - federated_strategy: iid_classical
 
-#  - client: noniid_classical-sgd-compare-acc-grad
-#  - federated_strategy: noniid_classical
-
+# done 2024-08-27/16-22-53
 #  - client: iid_fed-full-clients-stretched-out-sgd-compare
 #  - federated_strategy: iid_fed-full-clients-stretched-out-sgd-compare
 
@@ -56,15 +48,22 @@ defaults:
 ####
 # Speed pertubation
 ####
-#done
+# done 2024-09-01/22-11-54
 # 5 augmented per client. noniid. simulated fedavg with batch agg
 #  - client: fed-sim-acc-batch-7-clients-5-augment
 #  - federated_strategy: noniid_fed_sim_accbatch
 
+# done 2024-09-01/22-37-52
 # 5 augmented per client. iid. simulated fedavg with batch agg
-  - client: fed-sim-acc-batch-7-clients-5-augment
-  - federated_strategy: iid_fed_sim_accbatch
+#  - client: fed-sim-acc-batch-7-clients-5-augment
+#  - federated_strategy: iid_fed_sim_accbatch
 
+# done 2024-09-01/23-01-16
 # 20 augmented per client. noniid. simulated fedavg with batch agg
 #  - client: fed-sim-acc-batch-7-clients-20-augment
 #  - federated_strategy: noniid_fed_sim_accbatch
+
+# done 2024-09-01/23-37-43
+# 20 augmented per client. iid. simulated fedavg with batch agg
+#  - client: fed-sim-acc-batch-7-clients-20-augment
+#  - federated_strategy: iid_fed_sim_accbatch
